@@ -1,0 +1,50 @@
+# Minimal config: your own measurements from a CSV, no network, no BindingDB.
+#
+# The CSV needs a `smiles` column and either
+#   (a) `endpoint_name` + `affinity_raw` columns, one row per measurement -- preferred,
+#       because `affinity_raw` keeps the ">" and "<" qualifiers and those are where most
+#       of the negatives come from; or
+#   (b) one column per endpoint in p-units, one row per compound.
+run_name: quickstart
+output_dir: ./outputs/quickstart
+data_dir: ./data
+random_state: 42
+
+data:
+  source: csv
+  csv_path: ./data/my_measurements.csv
+  endpoint_names: [pIC50, pKi]
+  affinity_columns: ["IC50 (nM)", "Ki (nM)"]
+  target_uniprot_id: null
+  target_name_like: null
+  organism_like: null
+
+labels:
+  task: classification
+  modelled_endpoints: [pKi]
+  primary_endpoint: pKi
+  active_thresholds: {pIC50: 8.0, pKi: 8.0}
+  # With one endpoint only, turn this off: the detector needs two columns to find a
+  # fixed offset between them, and validation will tell you so.
+  drop_derived_endpoint_values: true
+  derived_endpoint: pKi
+
+features:
+  feature_set: fp_only
+
+models:
+  enabled: [RandomForest, "LogReg (L2)"]   # no extra dependencies needed
+  floors: ["LogReg (L2)"]
+
+evaluation:
+  # Smaller datasets need smaller folds, or every cluster is rejected as unscorable.
+  loco_min_cluster_size: 15
+  loco_min_fold_actives: 3
+  loco_n_remainder_folds: 2
+  min_train_compounds: 50
+
+domain:
+  enabled: false
+
+screen:
+  source: none

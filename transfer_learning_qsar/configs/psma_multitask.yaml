@@ -1,0 +1,58 @@
+# Multi-task classification: pIC50 and pKi jointly, one head per endpoint.
+#
+# Why you might want this: single-task pKi discards the 229 compounds measured only by
+# IC50, a third of the data. The masked loss lets each compound train the head it has a
+# label for. Pooled ROC-AUC was 0.770 (pIC50) and 0.796 (pKi).
+#
+# Why the default is single-task anyway: on pIC50 *nothing* cleared the
+# nearest-neighbour floor, so the extra endpoint added data without adding signal, and
+# the classical models are already fitted per endpoint so they gain nothing from sharing.
+run_name: psma_multitask
+output_dir: ./outputs/psma_multitask
+data_dir: ./data
+random_state: 42
+
+data:
+  target_uniprot_id: Q04609
+  endpoint_names: [pIC50, pKi]
+  affinity_columns: ["IC50 (nM)", "Ki (nM)"]
+
+labels:
+  task: classification
+  modelled_endpoints: [pIC50, pKi]
+  primary_endpoint: pIC50
+  active_thresholds:
+    pIC50: 8.0
+    pKi: 8.0
+  drop_derived_endpoint_values: true
+  derived_endpoint: pKi
+  keep_censored_as_labels: true
+  keep_unlabelled_for_domain: true
+
+features:
+  feature_set: fp_only
+
+models:
+  enabled:
+    [LightGBM, "KPLS-DA", RandomForest, "SVM (Tanimoto)", "kNN (Tanimoto)",
+     "LogReg (L2)", BernoulliNB]
+  floors: ["kNN (Tanimoto)", "LogReg (L2)"]
+  committee:
+    pIC50: [LightGBM, "KPLS-DA", RandomForest, "SVM (Tanimoto)"]
+    pKi: [LightGBM, "KPLS-DA", RandomForest, "SVM (Tanimoto)"]
+  retune: true
+
+transfer:
+  enabled: false
+
+evaluation:
+  butina_cutoff: 0.4
+  calibration: sigmoid
+  threshold_objective: mcc
+
+domain:
+  enabled: true
+  tanimoto_veto: true
+
+screen:
+  source: none

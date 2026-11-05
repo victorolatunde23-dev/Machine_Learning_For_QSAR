@@ -1,0 +1,24 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.eggs/
+.pytest_cache/
+.coverage
+htmlcov/
+.ruff_cache/
+.mypy_cache/
+.ipynb_checkpoints/
+.venv/
+venv/
+.DS_Store
+
+# run artefacts and data: large, regenerable, and not ours to redistribute
+outputs/
+data/
+*.sdf
+*.sdf.gz
+*.tsv
+*.tsv.zip
+*.joblib

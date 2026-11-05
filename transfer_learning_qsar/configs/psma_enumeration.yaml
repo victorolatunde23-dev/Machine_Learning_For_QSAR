@@ -1,0 +1,67 @@
+# Reaction-based enumeration of a focused library, mixed with catalogue controls.
+#
+# The enumeration builds analogues around the training pharmacophore, which makes them
+# in-domain BY CONSTRUCTION -- the model partly recognises its own training distribution.
+# That is why the catalogue strata below are not optional decoration:
+#   library_near    nearest to training -- the scaffold-hop candidates
+#   library_matched property-matched decoys -- the size-controlled comparison
+#   library_random  unbiased background
+# The only honest comparison is enumerated vs library_matched. Enumerated vs
+# library_random is flattering and should not be quoted.
+#
+# Check the positive control first: enumerated products that reproduce a known compound.
+# If none do, the shortlist has no internal check and nothing in it is falsifiable.
+run_name: psma_enumeration
+output_dir: ./outputs/psma_enumeration
+data_dir: ./data
+random_state: 42
+
+data:
+  target_uniprot_id: Q04609
+  endpoint_names: [pIC50, pKi]
+  affinity_columns: ["IC50 (nM)", "Ki (nM)"]
+
+labels:
+  task: classification
+  modelled_endpoints: [pKi]
+  primary_endpoint: pKi
+  active_thresholds: {pIC50: 8.0, pKi: 8.0}
+  drop_derived_endpoint_values: true
+  derived_endpoint: pKi
+  keep_unlabelled_for_domain: true
+
+features:
+  feature_set: fp_only
+
+models:
+  enabled: [LightGBM, RandomForest, "LogReg (L2)", "kNN (Tanimoto)"]
+  floors: ["kNN (Tanimoto)", "LogReg (L2)"]
+
+transfer:
+  enabled: false
+
+evaluation:
+  butina_cutoff: 0.4
+  threshold_objective: mcc
+
+domain:
+  enabled: true
+  tanimoto_veto: true
+
+screen:
+  # 'enumeration' alone validates as shipped, but the catalogue controls below are
+  # STRONGLY recommended rather than optional: without them there is no size-controlled
+  # comparison and the enumerated scores cannot be distinguished from a size effect.
+  # To switch them on, set mix_library_path and change source to 'enumeration+library'.
+  source: enumeration
+  mix_library_path: null
+  enum_max_products: null
+  enum_property_quantile: 0.05         # window from the ACTIVES, not from Lipinski
+  enum_apply_property_filter: true
+  enum_property_min_keep_frac: 0.20    # below this it flags instead of filtering
+  mix_pool_sample: 60000
+  mix_n_near: 5000
+  mix_n_matched: 10000
+  mix_n_random: 5000
+  mix_mw_tolerance: 25.0
+  shortlist_size: 500

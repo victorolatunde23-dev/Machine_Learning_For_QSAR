@@ -1,0 +1,65 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "qsar-tl"
+version = "0.1.0"
+description = "Configurable QSAR pipeline for binding-affinity classification, grouped-split evaluation and virtual library screening"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "victorolatunde23-dev" }]
+keywords = ["qsar", "cheminformatics", "virtual-screening", "bindingdb", "psma"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Chemistry",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+# Deliberately small. Everything here is importable without a chemistry toolkit, so the
+# data cleaning, evaluation, calibration and threshold logic can be tested anywhere.
+dependencies = [
+    "numpy>=1.23",
+    "pandas>=1.5",
+    "scipy>=1.9",
+    "scikit-learn>=1.2",
+    "pyyaml>=6.0",
+    "joblib>=1.2",
+]
+
+[project.optional-dependencies]
+# Anything that needs a molecule. Without this, featurisation, the applicability domain,
+# enumeration and library streaming raise a clear error naming the missing extra.
+chem = ["rdkit>=2022.9"]
+# Gradient boosting. The pipeline runs without it; LightGBM is simply skipped.
+boost = ["lightgbm>=3.3"]
+# The multi-task neural network and ChEMBL pretraining (the "transfer learning" arm).
+# See docs/RESULTS.md before reaching for it: two ablations found it bought nothing.
+torch = ["torch>=1.13"]
+# BindingDB acquisition straight from the TSV dump.
+bindingdb = ["duckdb>=0.9", "requests>=2.28"]
+plots = ["matplotlib>=3.6", "seaborn>=0.12"]
+progress = ["tqdm>=4.64"]
+dev = ["pytest>=7.2", "pytest-cov>=4.0"]
+all = [
+    "rdkit>=2022.9", "lightgbm>=3.3", "torch>=1.13", "duckdb>=0.9",
+    "requests>=2.28", "matplotlib>=3.6", "seaborn>=0.12", "tqdm>=4.64",
+]
+
+[project.scripts]
+qsar-tl = "qsar_tl.cli:main"
+
+[project.urls]
+Repository = "https://github.com/victorolatunde23-dev/Machine_Learning_For_QSAR"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+qsar_tl = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = ["ignore::DeprecationWarning", "ignore::FutureWarning"]
+markers = ["chem: needs rdkit", "slow: slower than a second or two"]

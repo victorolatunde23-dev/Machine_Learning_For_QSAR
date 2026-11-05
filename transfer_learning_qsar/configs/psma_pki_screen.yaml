@@ -1,0 +1,86 @@
+# The validated default: single-task pKi classification, two models, library screening.
+#
+# This is the configuration the evidence in docs/RESULTS.md supports. Pooled
+# leave-one-cluster-out ROC-AUC 0.804 (LightGBM) / 0.777 (RandomForest) on 278 compounds
+# with whole chemical families held out.
+run_name: psma_pki_screen
+output_dir: ./outputs/psma_pki_screen
+data_dir: ./data
+random_state: 42
+
+data:
+  source: bindingdb
+  target_uniprot_id: Q04609            # PSMA / FOLH1 / GCPII
+  target_name_like: Glutamate carboxypeptidase 2
+  organism_like: Homo sapiens
+  # Both endpoints are PULLED. Only pKi is MODELLED -- pIC50 is needed by the
+  # derived-value detector, which finds that 141 of 169 dual-measured compounds carry a
+  # pKi computed from the IC50 rather than measured.
+  endpoint_names: [pIC50, pKi]
+  affinity_columns: ["IC50 (nM)", "Ki (nM)"]
+  auto_resolve_bindingdb_url: true
+  on_download_failure: raise
+
+labels:
+  task: classification
+  modelled_endpoints: [pKi]
+  primary_endpoint: pKi
+  active_thresholds:
+    pIC50: 8.0
+    pKi: 8.0                           # Ki <= 10 nM
+  drop_derived_endpoint_values: true
+  derived_endpoint: pKi                # NOT primary_endpoint -- see docs/RESULTS.md
+  keep_censored_as_labels: true
+  keep_unlabelled_for_domain: false
+  dedupe_on_inchikey: true
+
+features:
+  # fp_only on evidence: the bake-off gave fp_only 0.865, fp_plus_descriptors 0.850,
+  # descriptors_only 0.844 -- and descriptors dominate the runtime over a large library.
+  feature_set: fp_only
+  morgan_radius: 2
+  morgan_n_bits: 2048
+  standardise: true
+
+models:
+  enabled: [LightGBM, RandomForest, "LogReg (L2)", "kNN (Tanimoto)"]
+  floors: ["kNN (Tanimoto)", "LogReg (L2)"]
+  committee: {}                        # no blend: it lost to its best member 7/7
+  class_weight_balanced: true
+  retune: true
+  tuning_cv_folds: 10
+  n_bootstrap: 0
+
+transfer:
+  enabled: false                       # two ablations found it bought nothing
+
+evaluation:
+  butina_cutoff: 0.4
+  loco_min_cluster_size: 25
+  loco_min_fold_actives: 5
+  loco_min_fold_n: 10
+  loco_max_clusters: 12
+  loco_n_remainder_folds: 3
+  calibration: sigmoid                 # Platt; isotonic collapses ties at this n
+  recalibrate_min_ece: 0.10
+  threshold_objective: mcc
+  threshold_max_called_frac: 0.25      # without this, MCC maximises at "call everything"
+  precision_at_n: [50, 100, 200]
+
+domain:
+  # Turn this OFF only deliberately. On a diversity catalogue screened with a congeneric
+  # training set it will exclude nearly everything, and that is a real chemistry mismatch
+  # rather than a threshold to loosen.
+  enabled: true
+  tanimoto_veto: true
+  consensus_min_flags: 3
+
+screen:
+  # 'none' so this file validates as shipped. To screen a library either pass
+  #   qsar-tl screen configs/psma_pki_screen.yaml --library path/to/library.sdf
+  # (which sets source to 'file' for you), or set both fields here.
+  source: none
+  library_path: null
+  chunk_size: 25000
+  limit: null                          # set a few thousand for a trial run
+  shortlist_size: 500

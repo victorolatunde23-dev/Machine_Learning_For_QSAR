@@ -1,0 +1,68 @@
+# The transfer-learning arm, as an ablation rather than a recommendation.
+#
+# Needs: pip install 'qsar-tl[torch,chem]'
+#
+# This config exists so the negative result can be reproduced and re-tested on another
+# target. On the PSMA data, pretraining a shared trunk on a broad potency corpus and
+# fine-tuning gave:
+#   - regression  (F4): +0.062 R2 on random splits, nothing on grouped splits
+#   - classification (F6): -0.0066 AUC
+# and the network was the joint-worst model on pKi (0.688, tied with lookup). Two
+# ablations in opposite directions both came back empty, which is a stronger result than
+# either alone. See docs/RESULTS.md.
+#
+# If you re-run this on a different target and pretraining DOES help there, that is worth
+# knowing -- the finding above is about this dataset, not about transfer learning.
+run_name: psma_transfer_ablation
+output_dir: ./outputs/psma_transfer_ablation
+data_dir: ./data
+random_state: 42
+
+data:
+  target_uniprot_id: Q04609
+  endpoint_names: [pIC50, pKi]
+  affinity_columns: ["IC50 (nM)", "Ki (nM)"]
+
+labels:
+  task: classification
+  modelled_endpoints: [pIC50, pKi]
+  primary_endpoint: pIC50
+  active_thresholds:
+    pIC50: 8.0
+    pKi: 8.0
+  drop_derived_endpoint_values: true
+  derived_endpoint: pKi
+  keep_unlabelled_for_domain: true
+
+features:
+  feature_set: fp_plus_descriptors      # the setting the original ablation used
+
+models:
+  enabled: [LightGBM, RandomForest, "LogReg (L2)", "kNN (Tanimoto)"]
+  floors: ["kNN (Tanimoto)", "LogReg (L2)"]
+  retune: false                         # the comparison is the network, not the zoo
+  params:
+    LightGBM: {n_estimators: 200, learning_rate: 0.05, num_leaves: 31, max_depth: -1}
+    RandomForest: {n_estimators: 300, max_features: 0.05, min_samples_leaf: 3}
+
+transfer:
+  enabled: true
+  use_pretraining: true
+  run_pretraining_ablation: true        # the paired with/without comparison
+  hidden_dims: [512, 256]
+  dropout: 0.25
+  lr: 0.001
+  pretrain_epochs: 40
+  finetune_epochs: 60
+  freeze_epochs: 10
+  mc_dropout_passes: 20
+
+evaluation:
+  butina_cutoff: 0.4
+  calibration: sigmoid
+
+domain:
+  enabled: true
+
+screen:
+  source: none
